@@ -34,7 +34,7 @@ debug_callback :: proc "system" (
 	log.logf(level, "vulkan[%v]: %s", messageTypes, pCallbackData.pMessage)
 	return false
 }
-create_debug_messenger :: proc(ren: ^Render_State) {
+create_debug_messenger :: proc(ren: ^Renderer) {
 	severity_flags: vk.DebugUtilsMessageSeverityFlagsEXT = {.ERROR, .WARNING}
 	type_flags: vk.DebugUtilsMessageTypeFlagsEXT = {.GENERAL, .PERFORMANCE, .VALIDATION}
 

@@ -1,0 +1,119 @@
+package renderer
+
+import vk "vendor:vulkan"
+
+create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
+	pipeline: vk.Pipeline
+	layout: vk.PipelineLayout
+
+	pcr: vk.PushConstantRange = {
+		stageFlags = {.VERTEX, .FRAGMENT},
+		size       = size_of(Mesh_Uniforms),
+	}
+
+	layouts: []vk.DescriptorSetLayout = {}
+
+	lci: vk.PipelineLayoutCreateInfo = {
+		sType                  = .PIPELINE_LAYOUT_CREATE_INFO,
+		setLayoutCount         = u32(len(layouts)),
+		pSetLayouts            = raw_data(layouts),
+		pushConstantRangeCount = 1,
+		pPushConstantRanges    = &pcr,
+	}
+
+	check(vk.CreatePipelineLayout(ren.device, &lci, nil, &layout))
+
+	vis: vk.PipelineVertexInputStateCreateInfo = {
+		sType                           = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		vertexBindingDescriptionCount   = 0,
+		pVertexBindingDescriptions      = nil,
+		vertexAttributeDescriptionCount = 0,
+		pVertexAttributeDescriptions    = nil,
+	}
+
+	ias: vk.PipelineInputAssemblyStateCreateInfo = {
+		sType    = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		topology = .TRIANGLE_LIST,
+	}
+
+	stages: []vk.PipelineShaderStageCreateInfo = {
+		{
+			sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+			stage = {.VERTEX},
+			module = ren.post_shader,
+			pName = "vertMain",
+		},
+		{
+			sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+			stage = {.FRAGMENT},
+			module = ren.post_shader,
+			pName = "fragMain",
+		},
+	}
+
+	vps: vk.PipelineViewportStateCreateInfo = {
+		sType         = .PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		viewportCount = 1,
+		scissorCount  = 1,
+	}
+
+	states: []vk.DynamicState = {.VIEWPORT, .SCISSOR}
+
+	ds: vk.PipelineDynamicStateCreateInfo = {
+		sType             = .PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		dynamicStateCount = 2,
+		pDynamicStates    = raw_data(states),
+	}
+
+	dci: vk.PipelineDepthStencilStateCreateInfo = {
+		sType            = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		depthTestEnable  = false,
+		depthWriteEnable = false,
+	}
+
+	rci: vk.PipelineRenderingCreateInfo = {
+		sType                   = .PIPELINE_RENDERING_CREATE_INFO,
+		colorAttachmentCount    = 1,
+		pColorAttachmentFormats = &ren.swap_format,
+	}
+
+	cbs: vk.PipelineColorBlendAttachmentState = {
+		colorWriteMask = {.R, .G, .B, .A},
+	}
+
+	bci: vk.PipelineColorBlendStateCreateInfo = {
+		sType           = .PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		attachmentCount = 1,
+		pAttachments    = &cbs,
+	}
+
+	rasci: vk.PipelineRasterizationStateCreateInfo = {
+		sType       = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		polygonMode = .FILL,
+		lineWidth   = 1.0,
+	}
+
+	msci: vk.PipelineMultisampleStateCreateInfo = {
+		sType                = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		rasterizationSamples = {._1},
+	}
+
+	pci: vk.GraphicsPipelineCreateInfo = {
+		sType               = .GRAPHICS_PIPELINE_CREATE_INFO,
+		pNext               = &rci,
+		stageCount          = 2,
+		pStages             = raw_data(stages),
+		pVertexInputState   = &vis,
+		pViewportState      = &vps,
+		pRasterizationState = &rasci,
+		pMultisampleState   = &msci,
+		pDepthStencilState  = &dci,
+		pColorBlendState    = &bci,
+		pDynamicState       = &ds,
+		layout              = layout,
+	}
+
+	check(vk.CreateGraphicsPipelines(ren.device, 0, 1, &pci, nil, &pipeline))
+
+	return pipeline, layout
+}

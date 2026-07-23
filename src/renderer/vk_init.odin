@@ -1,15 +1,22 @@
 package renderer
 
-import vma "../../../odin-vma"
-import "../window/"
 import "core:log"
+import "core:slice"
+
+import vma "../../../odin-vma"
 import sdl "vendor:sdl3"
 import vk "vendor:vulkan"
 
-create_intance :: proc(ren: ^Render_State) {
+import "../window/"
+
+create_intance :: proc(ren: ^Renderer) {
 	sdl_ext_count: u32
-	layers: [dynamic]cstring
+	layer_count: u32 = 0
+	layers := make([dynamic]cstring)
+	defer delete(layers)
+	// layers: [d]cstring = {"VK_LAYER_KHRONOS_validation"}
 	extensions: [dynamic]cstring
+
 
 	sdl_ext := sdl.Vulkan_GetInstanceExtensions(&sdl_ext_count)
 
@@ -36,16 +43,16 @@ create_intance :: proc(ren: ^Render_State) {
 		pNext                   = nil,
 		pApplicationInfo        = &ai,
 		enabledLayerCount       = u32(len(layers)),
-		ppEnabledLayerNames     = &layers[0],
+		ppEnabledLayerNames     = raw_data(layers),
 		enabledExtensionCount   = u32(len(extensions)),
-		ppEnabledExtensionNames = &extensions[0],
+		ppEnabledExtensionNames = raw_data(extensions),
 	}
 
 	check(vk.CreateInstance(&ici, nil, &ren.instance), "Creating Instance")
 }
 
 //TODO: Actually select the best device
-select_physical_device :: proc(ren: ^Render_State) {
+select_physical_device :: proc(ren: ^Renderer) {
 	count: u32
 	devices: [8]vk.PhysicalDevice
 
@@ -62,7 +69,7 @@ select_physical_device :: proc(ren: ^Render_State) {
 	log.infof("Device Found: %s", props.properties.deviceName)
 }
 
-create_device :: proc(ren: ^Render_State) {
+create_device :: proc(ren: ^Renderer) {
 	q_priority: f32
 	family_count: u32
 	families: [32]vk.QueueFamilyProperties
@@ -127,7 +134,7 @@ create_device :: proc(ren: ^Render_State) {
 	vk.GetDeviceQueue(ren.device, ren.gfx_q_family, 0, &ren.gfx_q)
 }
 
-create_allocator :: proc(ren: ^Render_State) {
+create_allocator :: proc(ren: ^Renderer) {
 	f := vma.create_vulkan_functions()
 
 	aci: vma.AllocatorCreateInfo = {
@@ -142,7 +149,7 @@ create_allocator :: proc(ren: ^Render_State) {
 	check(vma.CreateAllocator(aci, &ren.allocator), "Creating VMA Allocator")
 }
 
-create_surface :: proc(ren: ^Render_State, win: ^window.Window) {
+create_surface :: proc(ren: ^Renderer, win: ^window.Window) {
 	w, h: i32
 
 	window.check(
@@ -153,7 +160,102 @@ create_surface :: proc(ren: ^Render_State, win: ^window.Window) {
 	win.w, win.h = u32(w), u32(h)
 }
 
-init :: proc(ren: ^Render_State, win: ^window.Window) {
+create_sync_primitives :: proc(ren: ^Renderer) {
+	ren.fences = make([]vk.Fence, FIF)
+	ren.semaphore_image = make([]vk.Semaphore, FIF)
+	ren.semaphore_render = make([]vk.Semaphore, ren.swap_count)
+
+	fci: vk.FenceCreateInfo = {
+		sType = .FENCE_CREATE_INFO,
+		flags = {.SIGNALED},
+	}
+
+	sci: vk.SemaphoreCreateInfo = {
+		sType = .SEMAPHORE_CREATE_INFO,
+	}
+
+
+	for i in 0 ..< FIF {
+		check(vk.CreateFence(ren.device, &fci, nil, &ren.fences[i]))
+		check(vk.CreateSemaphore(ren.device, &sci, nil, &ren.semaphore_image[i]))
+	}
+
+	for i in 0 ..< ren.swap_count {
+		check(vk.CreateSemaphore(ren.device, &sci, nil, &ren.semaphore_render[i]))
+	}
+}
+
+create_command_buffer :: proc(ren: ^Renderer) {
+	ren.command_buffers = make([]vk.CommandBuffer, FIF)
+
+	cci: vk.CommandPoolCreateInfo = {
+		sType            = .COMMAND_POOL_CREATE_INFO,
+		flags            = {.RESET_COMMAND_BUFFER},
+		queueFamilyIndex = ren.gfx_q_family,
+	}
+
+	check(vk.CreateCommandPool(ren.device, &cci, nil, &ren.command_pool))
+
+	cba: vk.CommandBufferAllocateInfo = {
+		sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
+		commandPool        = ren.command_pool,
+		level              = .PRIMARY,
+		commandBufferCount = FIF,
+	}
+
+	check(vk.AllocateCommandBuffers(ren.device, &cba, raw_data(ren.command_buffers)))
+}
+
+create_shader_modules :: proc(ren: ^Renderer, code: []byte) -> vk.ShaderModule {
+	module: vk.ShaderModule
+
+	as_u32 := slice.reinterpret([]u32, code)
+
+	mci: vk.ShaderModuleCreateInfo = {
+		sType    = .SHADER_MODULE_CREATE_INFO,
+		codeSize = len(code),
+		pCode    = raw_data(as_u32),
+	}
+	check(vk.CreateShaderModule(ren.device, &mci, nil, &module), "Creating Shader Module")
+
+	return module
+}
+
+// create_shader_module :: proc(code: []byte) -> (module: vk.ShaderModule) {
+// 	as_u32 := slice.reinterpret([]u32, code)
+//
+// 	create_info := vk.ShaderModuleCreateInfo {
+// 		sType    = .SHADER_MODULE_CREATE_INFO,
+// 		codeSize = len(code),
+// 		pCode    = raw_data(as_u32),
+// 	}
+// 	must(vk.CreateShaderModule(g_device, &create_info, nil, &module))
+// 	return
+// }
+
+// void vk_load_shaders(struct render_state *ren)
+// {
+// 	size_t s = 0;
+// 	char *c = read_file("shader.spv", &s);
+// 	VkShaderModuleCreateInfo sci = {
+// 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+// 		.codeSize = s,
+// 		.pCode = (u32 *)c,
+// 	};
+//
+// 	vk_chk(vkCreateShaderModule(ren->device, &sci, NULL, &ren->default_shader), "Creating Shader Module");
+//
+// 	s = 0;
+// 	c = read_file("post.spv", &s);
+// 	VkShaderModuleCreateInfo sci_post = {
+// 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+// 		.codeSize = s,
+// 		.pCode = (u32 *)c,
+// 	};
+//
+// 	vk_chk(vkCreateShaderModule(ren->device, &sci_post, NULL, &ren->post_shader), "Creating Shader Module");
+// }
+init :: proc(ren: ^Renderer, win: ^window.Window) {
 	vk.load_proc_addresses_global(rawptr(sdl.Vulkan_GetVkGetInstanceProcAddr()))
 	assert(vk.CreateInstance != nil, "Vulkan Global Function Pointers Not Loaded")
 
@@ -161,9 +263,19 @@ init :: proc(ren: ^Render_State, win: ^window.Window) {
 	vk.load_proc_addresses_instance(ren.instance)
 	assert(vk.CreateDevice != nil, "Vulkan Instance Function Pointers Not Loaded")
 
-	create_debug_messenger(ren)
+	when ENABLE_VALIDATION {
+		create_debug_messenger(ren)
+	}
+
 	select_physical_device(ren)
 	create_device(ren)
+
 	create_allocator(ren)
 	create_surface(ren, win)
+	create_swapchain(ren, win)
+	create_depth_image(ren, win.w, win.h)
+	create_sync_primitives(ren)
+	create_command_buffer(ren)
+	ren.post_shader = create_shader_modules(ren, SHADER_FULLSCREEN)
+	ren.post_pipeline, ren.post_pipeline_layout = create_pipeline(ren)
 }

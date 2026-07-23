@@ -1,8 +1,6 @@
 package main
 
-import "core:fmt"
 import "core:log"
-import "core:mem"
 
 import "renderer"
 import "window"
@@ -19,7 +17,7 @@ main :: proc() {
 	app: App
 	win: window.Window
 	input: window.Input
-	ren: renderer.Render_State
+	ren: renderer.Renderer
 
 	init_logger(&app)
 	context.logger = app.console_logger
