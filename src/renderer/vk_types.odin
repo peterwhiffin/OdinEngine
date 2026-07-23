@@ -74,4 +74,6 @@ Renderer :: struct {
 	messenger:            vk.DebugUtilsMessengerEXT,
 	gfx_q:                vk.Queue,
 	gfx_q_family:         u32,
+	frame_index:          u32,
+	image_index:          u32,
 }

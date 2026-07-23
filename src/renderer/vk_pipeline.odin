@@ -6,10 +6,10 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 	pipeline: vk.Pipeline
 	layout: vk.PipelineLayout
 
-	pcr: vk.PushConstantRange = {
-		stageFlags = {.VERTEX, .FRAGMENT},
-		size       = size_of(Mesh_Uniforms),
-	}
+	// pcr: vk.PushConstantRange = {
+	// 	stageFlags = {.VERTEX, .FRAGMENT},
+	// 	size       = size_of(vk.DeviceAddress),
+	// }
 
 	layouts: []vk.DescriptorSetLayout = {}
 
@@ -17,8 +17,8 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 		sType                  = .PIPELINE_LAYOUT_CREATE_INFO,
 		setLayoutCount         = u32(len(layouts)),
 		pSetLayouts            = raw_data(layouts),
-		pushConstantRangeCount = 1,
-		pPushConstantRanges    = &pcr,
+		pushConstantRangeCount = 0,
+		// pPushConstantRanges    = &pcr,
 	}
 
 	check(vk.CreatePipelineLayout(ren.device, &lci, nil, &layout))
@@ -71,10 +71,12 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 		depthWriteEnable = false,
 	}
 
+	// fmt: vk.Format = .R8G8B8A8_SRGB
 	rci: vk.PipelineRenderingCreateInfo = {
 		sType                   = .PIPELINE_RENDERING_CREATE_INFO,
 		colorAttachmentCount    = 1,
 		pColorAttachmentFormats = &ren.swap_format,
+		// pColorAttachmentFormats = &fmt,
 	}
 
 	cbs: vk.PipelineColorBlendAttachmentState = {
@@ -104,6 +106,7 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 		stageCount          = 2,
 		pStages             = raw_data(stages),
 		pVertexInputState   = &vis,
+		pInputAssemblyState = &ias,
 		pViewportState      = &vps,
 		pRasterizationState = &rasci,
 		pMultisampleState   = &msci,
@@ -113,7 +116,10 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 		layout              = layout,
 	}
 
-	check(vk.CreateGraphicsPipelines(ren.device, 0, 1, &pci, nil, &pipeline))
+	check(
+		vk.CreateGraphicsPipelines(ren.device, 0, 1, &pci, nil, &pipeline),
+		"Creating Graphics Pipeline",
+	)
 
 	return pipeline, layout
 }

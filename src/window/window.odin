@@ -39,8 +39,22 @@ init :: proc(win: ^Window, input: ^Input) {
 	win.w = 800
 	win.h = 600
 
-	flags: sdl.WindowFlags = {.VULKAN, .RESIZABLE}
+	// flags: sdl.WindowFlags = {.VULKAN, .RESIZABLE}
+	flags: sdl.WindowFlags = {.VULKAN}
 	win.sdl_win = sdl.CreateWindow("Odin Engine", i32(win.w), i32(win.h), flags)
 
 	check(win.sdl_win != nil, "Creating Window")
+}
+
+poll_events :: proc(win: ^Window) {
+	event: sdl.Event
+
+	for sdl.PollEvent(&event) {
+		#partial switch (event.type) {
+		case .QUIT:
+			win.should_close = true
+		case .WINDOW_CLOSE_REQUESTED:
+			win.should_close = true
+		}
+	}
 }

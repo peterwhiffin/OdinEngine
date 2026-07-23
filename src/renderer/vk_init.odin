@@ -221,40 +221,6 @@ create_shader_modules :: proc(ren: ^Renderer, code: []byte) -> vk.ShaderModule {
 	return module
 }
 
-// create_shader_module :: proc(code: []byte) -> (module: vk.ShaderModule) {
-// 	as_u32 := slice.reinterpret([]u32, code)
-//
-// 	create_info := vk.ShaderModuleCreateInfo {
-// 		sType    = .SHADER_MODULE_CREATE_INFO,
-// 		codeSize = len(code),
-// 		pCode    = raw_data(as_u32),
-// 	}
-// 	must(vk.CreateShaderModule(g_device, &create_info, nil, &module))
-// 	return
-// }
-
-// void vk_load_shaders(struct render_state *ren)
-// {
-// 	size_t s = 0;
-// 	char *c = read_file("shader.spv", &s);
-// 	VkShaderModuleCreateInfo sci = {
-// 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-// 		.codeSize = s,
-// 		.pCode = (u32 *)c,
-// 	};
-//
-// 	vk_chk(vkCreateShaderModule(ren->device, &sci, NULL, &ren->default_shader), "Creating Shader Module");
-//
-// 	s = 0;
-// 	c = read_file("post.spv", &s);
-// 	VkShaderModuleCreateInfo sci_post = {
-// 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-// 		.codeSize = s,
-// 		.pCode = (u32 *)c,
-// 	};
-//
-// 	vk_chk(vkCreateShaderModule(ren->device, &sci_post, NULL, &ren->post_shader), "Creating Shader Module");
-// }
 init :: proc(ren: ^Renderer, win: ^window.Window) {
 	vk.load_proc_addresses_global(rawptr(sdl.Vulkan_GetVkGetInstanceProcAddr()))
 	assert(vk.CreateInstance != nil, "Vulkan Global Function Pointers Not Loaded")

@@ -91,71 +91,303 @@ create_depth_image :: proc(ren: ^Renderer, width: u32, height: u32) {
 	)
 }
 
-// void vk_create_depth_buffer(struct render_state *ren, struct window *win)
+transition_image :: proc(ren: ^Renderer) {
+
+}
+
+// void vk_draw_frame(struct render_state *ren, struct window *win, struct entity *cam_entity)
 // {
-// 	VkFormat fmts[] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
-// 	ren->depth_fmt = VK_FORMAT_UNDEFINED;
-// 	VkFormatProperties2 props = { .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2 };
+// 	struct camera *cam = &cam_entity->camera;
+// 	u32 frame = ren->frame_index;
+// 	vk_chk(vkWaitForFences(ren->device, 1, &ren->fences[frame], true, UINT64_MAX), NULL);
+// 	vk_chk(vkResetFences(ren->device, 1, &ren->fences[frame]), NULL);
+// 	chk_swapchain(ren, vkAcquireNextImageKHR(ren->device, ren->swapchain, UINT64_MAX, ren->sem_img[frame],
+// 						 VK_NULL_HANDLE, &ren->image_index));
 //
-// 	for (int i = 0; i < 2; i++) {
-// 		vkGetPhysicalDeviceFormatProperties2(ren->physical_device, fmts[i], &props);
-// 		if (props.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-// 			ren->depth_fmt = fmts[i];
-// 			break;
-// 		}
-// 	}
+// 	struct per_frame_uniforms cam_uniforms = {
+// 		.proj = cam->proj,
+// 		.view = cam->view,
+// 		.light_dir =
+// 			{
+// 				ren->light_dir.x,
+// 				ren->light_dir.y,
+// 				ren->light_dir.z,
+// 				0.0f,
+// 			},
+// 		.cam_pos =
+// 			{
+// 				cam_entity->transform.pos.x,
+// 				cam_entity->transform.pos.y,
+// 				cam_entity->transform.pos.z,
+// 				0.0f,
+// 			},
+// 		.ambient = ren->ambient,
+// };
 //
-// 	VkExtent3D ext = {
+// 	memcpy(ren->camera_uniform_buffer[frame].info.pMappedData, &cam_uniforms, sizeof(struct per_frame_uniforms));
+//
+// 	VkCommandBuffer cmd = ren->cmds[frame];
+// 	vk_chk(vkResetCommandBuffer(cmd, 0), NULL);
+// 	VkCommandBufferBeginInfo cbi = {
+// 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+// 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+// 	};
+//
+// 	vk_chk(vkBeginCommandBuffer(cmd, &cbi), NULL);
+//
+// 	VkImageMemoryBarrier2 outputBarriers[2] = {
+// 		(VkImageMemoryBarrier2){
+// 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+// 			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 			.srcAccessMask = 0,
+// 			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+// 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+// 			.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 			.image = ren->post_images[frame]->image,
+// 			.subresourceRange = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+// 					      .levelCount = 1,
+// 					      .layerCount = 1 },
+// 		},
+// 		(VkImageMemoryBarrier2){
+// 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+// 			.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+// 			.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+// 			.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+// 			.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+// 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+// 			.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 			.image = ren->depth_image.image,
+// 			.subresourceRange = { .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+// 					      .levelCount = 1,
+// 					      .layerCount = 1 },
+// 		},
+// 	};
+//
+// 	VkDependencyInfo barrierDependencyInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+// 		.imageMemoryBarrierCount = 2,
+// 		.pImageMemoryBarriers = outputBarriers,
+// 	};
+//
+// 	vkCmdPipelineBarrier2(cmd, &barrierDependencyInfo);
+//
+// 	VkRenderingAttachmentInfo colorAttachmentInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+// 		.imageView = ren->post_images[frame]->view,
+// 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+// 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+// 		.clearValue = { .color = { { 0.0f, 0.0f, 0.2f, 1.0f } } },
+// 	};
+//
+// 	VkRenderingAttachmentInfo depthAttachmentInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+// 		.imageView = ren->depth_image.view,
+// 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+// 		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+// 		.clearValue = { .depthStencil = { 1.0f, 0 } },
+// 	};
+//
+// 	VkRenderingInfo renderingInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+// 		.renderArea = { .extent = { .width = win->w, .height = win->h } },
+// 		.layerCount = 1,
+// 		.colorAttachmentCount = 1,
+// 		.pColorAttachments = &colorAttachmentInfo,
+// 		.pDepthAttachment = &depthAttachmentInfo,
+// 	};
+//
+// 	vkCmdBeginRendering(cmd, &renderingInfo);
+//
+// 	VkViewport vp = {
 // 		.width = win->w,
 // 		.height = win->h,
-// 		.depth = 1,
+// 		.minDepth = 0.0f,
+// 		.maxDepth = 1.0f,
 // 	};
 //
-// 	VkImageCreateInfo dci = {
-// 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-// 		.pNext = NULL,
-// 		.flags = 0,
-// 		.imageType = VK_IMAGE_TYPE_2D,
-// 		.format = ren->depth_fmt,
-// 		.extent = ext,
-// 		.mipLevels = 1,
-// 		.arrayLayers = 1,
-// 		.samples = VK_SAMPLE_COUNT_1_BIT,
-// 		.tiling = VK_IMAGE_TILING_OPTIMAL,
-// 		.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-// 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-// 		.queueFamilyIndexCount = 0,
-// 		.pQueueFamilyIndices = NULL,
-// 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+// 	vkCmdSetViewport(cmd, 0, 1, &vp);
+// 	VkRect2D scissor = {
+// 		.extent = { .width = win->w, .height = win->h },
 // 	};
 //
-// 	VmaAllocationCreateInfo aci = {
-// 		.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-// 		.usage = VMA_MEMORY_USAGE_AUTO,
+// 	vkCmdSetScissor(cmd, 0, 1, &scissor);
+// 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ren->default_pipeline);
+//
+// 	for (u32 i = 0; i < ren->entity_count; i++) {
+// 		struct entity *e = &ren->entities[i];
+// 		if (!(e->flags & MESH_RENDERER))
+// 			continue;
+//
+// 		struct mesh_renderer *mr = &e->mesh_renderer;
+// 		struct mesh *m = e->mesh_renderer.mesh;
+//
+// 		struct entity_uniforms u = {
+// 			.model = e->transform.world_transform,
+// 			.normal_mat = mr->normal_matrix,
+// 		};
+//
+// 		memcpy(mr->buffs[frame].info.pMappedData, &u, sizeof(struct entity_uniforms));
+//
+// 		vkCmdBindVertexBuffers(cmd, 0, 1, &m->buff, &m->vertex_offset);
+// 		vkCmdBindIndexBuffer(cmd, m->buff, m->ind_offset, VK_INDEX_TYPE_UINT32);
+//
+// 		for (u32 k = 0; k < m->submesh_count; k++) {
+// 			struct submesh *sm = &m->submeshes[k];
+//
+// 			VkDescriptorSet sets[2] = {
+// 				ren->set_tex,
+// 				mr->sets[frame],
+// 			};
+//
+// 			struct push_constants pc = {
+// 				.bda = ren->camera_uniform_buffer[frame].addr,
+// 				.tex_ind = sm->tex_index,
+// 			};
+//
+// 			vkCmdPushConstants(cmd, ren->default_pipeline_layout,
+// 					   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc),
+// 					   &pc);
+// 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ren->default_pipeline_layout, 0,
+// 						2, sets, 0, NULL);
+// 			vkCmdDrawIndexed(cmd, sm->index_count, 1, sm->index_offset, 0, 0);
+// 		}
+// 	}
+// 	cImGui_ImplVulkan_RenderDrawData(ImGui_GetDrawData(), cmd);
+// 	vkCmdEndRendering(cmd);
+//
+// 	VkImageMemoryBarrier2 outputBarriersPost[2] = {
+//
+// 		(VkImageMemoryBarrier2){
+// 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+// 			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+// 			.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+// 			.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+// 			.oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 			.newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+// 			.image = ren->post_images[frame]->image,
+// 			.subresourceRange = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+// 					      .levelCount = 1,
+// 					      .layerCount = 1 },
+// 		},
+// 		(VkImageMemoryBarrier2){
+// 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+// 			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 			.srcAccessMask = 0,
+// 			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+// 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+// 			.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 			.image = ren->swap_images[ren->image_index].image,
+// 			.subresourceRange = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+// 					      .levelCount = 1,
+// 					      .layerCount = 1 },
+// 		},
 // 	};
 //
-// 	vk_chk(vmaCreateImage(ren->allocator, &dci, &aci, &ren->depth_image.image, &ren->depth_image.alloc, NULL),
-// 	       "Creating Depth Image");
-// 	vmaSetAllocationName(ren->allocator, ren->depth_image.alloc, "depth image allocation");
+// 	VkDependencyInfo barrierDependencyInfoPost = {
+// 		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+// 		.imageMemoryBarrierCount = 2,
+// 		.pImageMemoryBarriers = outputBarriersPost,
+// 	};
 //
-// 	VkImageSubresourceRange sr = {
-// 		.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-// 		.baseMipLevel = 0,
-// 		.levelCount = 1,
-// 		.baseArrayLayer = 0,
+// 	vkCmdPipelineBarrier2(cmd, &barrierDependencyInfoPost);
+//
+// 	VkRenderingAttachmentInfo colorAttachmentInfoPost = {
+// 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+// 		.imageView = ren->swap_images[ren->image_index].view,
+// 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+// 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+// 		.clearValue = { .color = { { 0.0f, 0.0f, 0.2f, 1.0f } } },
+// 	};
+//
+// 	VkRenderingInfo renderingInfoPost = {
+// 		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+// 		.renderArea = { .extent = { .width = win->w, .height = win->h } },
 // 		.layerCount = 1,
+// 		.colorAttachmentCount = 1,
+// 		.pColorAttachments = &colorAttachmentInfoPost,
 // 	};
 //
-// 	VkImageViewCreateInfo vci = {
-// 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-// 		.pNext = NULL,
-// 		.flags = 0,
-// 		.image = ren->depth_image.image,
-// 		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-// 		.format = ren->depth_fmt,
-// 		.components = { 0 },
-// 		.subresourceRange = sr,
+// 	vkCmdBeginRendering(cmd, &renderingInfoPost);
+//
+// 	VkViewport vpPost = {
+// 		.width = win->w,
+// 		.height = win->h,
+// 		.minDepth = 0.0f,
+// 		.maxDepth = 1.0f,
 // 	};
 //
-// 	vk_chk(vkCreateImageView(ren->device, &vci, NULL, &ren->depth_image.view), "Creating Depth View");
+// 	vkCmdSetViewport(cmd, 0, 1, &vpPost);
+// 	VkRect2D scissorPost = {
+// 		.extent = { .width = win->w, .height = win->h },
+// 	};
+//
+// 	vkCmdSetScissor(cmd, 0, 1, &scissorPost);
+// 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ren->post_pipeline);
+//
+// 	VkDescriptorSet sets[1] = {
+// 		ren->set_tex_post[frame],
+// 	};
+//
+// 	vec4s color_test = { 1.0f, 0.0f, 0.0f, 1.0f };
+//
+// 	vkCmdPushConstants(cmd, ren->post_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+// 			   sizeof(vec4s), &color_test);
+// 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ren->post_pipeline_layout, 0, 1, sets, 0, NULL);
+// 	vkCmdDraw(cmd, 3, 1, 0, 0);
+// 	vkCmdEndRendering(cmd);
+//
+// 	VkImageMemoryBarrier2 barrierPresent = {
+// 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+// 		.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 		.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+// 		.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+// 		.dstAccessMask = VK_ACCESS_NONE,
+// 		.oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+// 		.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+// 		.image = ren->swap_images[ren->image_index].image,
+// 		.subresourceRange = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1 },
+// 	};
+//
+// 	VkDependencyInfo barrierPresentDependencyInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+// 		.imageMemoryBarrierCount = 1,
+// 		.pImageMemoryBarriers = &barrierPresent,
+// 	};
+//
+// 	vkCmdPipelineBarrier2(cmd, &barrierPresentDependencyInfo);
+//
+// 	vkEndCommandBuffer(cmd);
+//
+// 	VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+// 	VkSubmitInfo submitInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+// 		.waitSemaphoreCount = 1,
+// 		.pWaitSemaphores = &ren->sem_img[frame],
+// 		.pWaitDstStageMask = &waitStages,
+// 		.commandBufferCount = 1,
+// 		.pCommandBuffers = &cmd,
+// 		.signalSemaphoreCount = 1,
+// 		.pSignalSemaphores = &ren->sem_ren[ren->image_index],
+// 	};
+//
+// 	vk_chk(vkQueueSubmit(ren->gfx_q, 1, &submitInfo, ren->fences[frame]), NULL);
+//
+// 	ren->frame_index = (ren->frame_index + 1) % FIF;
+//
+// 	VkPresentInfoKHR presentInfo = {
+// 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+// 		.waitSemaphoreCount = 1,
+// 		.pWaitSemaphores = &ren->sem_ren[ren->image_index],
+// 		.swapchainCount = 1,
+// 		.pSwapchains = &ren->swapchain,
+// 		.pImageIndices = &ren->image_index,
+// 	};
+//
+// 	chk_swapchain(ren, vkQueuePresentKHR(ren->gfx_q, &presentInfo));
 // }
