@@ -1,15 +1,12 @@
 package main
 
-import "core:flags/example"
 import "core:fmt"
 import "core:log"
-import "core:math"
 import "core:path/filepath"
 
 import "core:strings"
 import "vendor:cgltf"
 
-import "loader"
 import "renderer"
 
 Array :: struct($T: typeid) {
