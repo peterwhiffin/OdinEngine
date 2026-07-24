@@ -2,6 +2,7 @@ package renderer
 
 import vma "../../../odin-vma"
 import "core:math/linalg"
+import "core:strconv"
 import vk "vendor:vulkan"
 
 ENABLE_VALIDATION :: #config(ENABLE_VALIDATION, ODIN_DEBUG)
@@ -23,11 +24,12 @@ Submesh :: struct {
 }
 
 Mesh :: struct {
-	name:          string,
-	buffer:        vk.Buffer,
-	index_offset:  vk.DeviceSize,
-	vertex_offset: vk.DeviceSize,
-	allocation:    vma.Allocation,
+	name:         string,
+	vertex_count: u64,
+	index_count:  u64,
+	index_offset: u64,
+	submeshes:    []Submesh,
+	buffer:       Buffer,
 }
 
 Buffer :: struct {
@@ -76,4 +78,6 @@ Renderer :: struct {
 	gfx_q_family:         u32,
 	frame_index:          u32,
 	image_index:          u32,
+	test_buff:            []Buffer,
+	test_uni:             Mesh_Uniforms,
 }

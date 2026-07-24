@@ -244,4 +244,15 @@ init :: proc(ren: ^Renderer, win: ^window.Window) {
 	create_command_buffer(ren)
 	ren.post_shader = create_shader_modules(ren, SHADER_FULLSCREEN)
 	ren.post_pipeline, ren.post_pipeline_layout = create_pipeline(ren)
+
+	ren.test_buff = make([]Buffer, FIF)
+
+	for i in 0 ..< FIF {
+		ren.test_buff[i] = create_buffer(
+			ren,
+			size_of(Mesh_Uniforms),
+			{.SHADER_DEVICE_ADDRESS},
+			{.HOST_ACCESS_SEQUENTIAL_WRITE, .HOST_ACCESS_ALLOW_TRANSFER_INSTEAD, .MAPPED},
+		)
+	}
 }

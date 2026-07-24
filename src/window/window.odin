@@ -18,8 +18,9 @@ Window :: struct {
 }
 
 Input :: struct {
-	sdl_keys:   ^bool,
-	lock_mouse: proc "c" (window: ^sdl.Window, enabled: bool) -> bool,
+	sdl_keys:           ^bool,
+	lock_mouse:         proc "c" (window: ^sdl.Window, enabled: bool) -> bool,
+	relative_mouse_pos: [2]f32,
 }
 
 check :: proc(result: bool, msg: cstring = nil) {
@@ -44,6 +45,11 @@ init :: proc(win: ^Window, input: ^Input) {
 	win.sdl_win = sdl.CreateWindow("Odin Engine", i32(win.w), i32(win.h), flags)
 
 	check(win.sdl_win != nil, "Creating Window")
+}
+
+update :: proc(input: ^Input) {
+	buttons := sdl.GetMouseState(&input.relative_mouse_pos.x, &input.relative_mouse_pos.y)
+	// SDL_GetMouseState(&input->relativeCursorPosition.x, &input->relativeCursorPosition.y)
 }
 
 poll_events :: proc(win: ^Window) {

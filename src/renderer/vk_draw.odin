@@ -110,6 +110,23 @@ draw_frame :: proc(ren: ^Renderer, win: ^window.Window) {
 	vk.CmdSetScissor(cmd, 0, 1, &sc)
 
 	vk.CmdBindPipeline(cmd, .GRAPHICS, ren.post_pipeline)
+	// uni: Mesh_Uniforms = {
+	// 	color = {1.0, 1.0, 1.0, 1.0},
+	// 	pos   = {400.0, 300.0, 0.0, 0.0},
+	// }
+
+	mem.copy(ren.test_buff[frame].alloc_info.pMappedData, &ren.test_uni, size_of(ren.test_uni))
+
+
+	vk.CmdPushConstants(
+		cmd,
+		ren.post_pipeline_layout,
+		{.FRAGMENT, .VERTEX},
+		0,
+		size_of(vk.DeviceAddress),
+		&ren.test_buff[frame].address,
+	)
+
 	vk.CmdDraw(cmd, 3, 1, 0, 0)
 	vk.CmdEndRendering(cmd)
 

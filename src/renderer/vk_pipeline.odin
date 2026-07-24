@@ -6,10 +6,10 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 	pipeline: vk.Pipeline
 	layout: vk.PipelineLayout
 
-	// pcr: vk.PushConstantRange = {
-	// 	stageFlags = {.VERTEX, .FRAGMENT},
-	// 	size       = size_of(vk.DeviceAddress),
-	// }
+	pcr: vk.PushConstantRange = {
+		stageFlags = {.VERTEX, .FRAGMENT},
+		size       = size_of(vk.DeviceAddress),
+	}
 
 	layouts: []vk.DescriptorSetLayout = {}
 
@@ -17,8 +17,8 @@ create_pipeline :: proc(ren: ^Renderer) -> (vk.Pipeline, vk.PipelineLayout) {
 		sType                  = .PIPELINE_LAYOUT_CREATE_INFO,
 		setLayoutCount         = u32(len(layouts)),
 		pSetLayouts            = raw_data(layouts),
-		pushConstantRangeCount = 0,
-		// pPushConstantRanges    = &pcr,
+		pushConstantRangeCount = 1,
+		pPushConstantRanges    = &pcr,
 	}
 
 	check(vk.CreatePipelineLayout(ren.device, &lci, nil, &layout))
